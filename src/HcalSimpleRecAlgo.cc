@@ -1,10 +1,18 @@
 #include "RecoLocalCalo/HcalRecAlgos/interface/HcalSimpleRecAlgo.h"
+#include <FWCore/Utilities/interface/Exception.h>
 
 HcalSimpleRecAlgo::HcalSimpleRecAlgo(int firstSample, int samplesToAdd) : firstSample_(firstSample), samplesToAdd_(samplesToAdd) {
 }
 
-float timeshift_hbheho(float wpksamp) { return 0; }
-float timeshift_hf(float wpksamp) { return 0; }
+///Timeshift correction for HPDs based on the position of the peak ADC measurement.
+///  Allows for an accurate determination of the relative phase of the pulse shape from
+///  the HPD.  Calculated based on a weighted sum of the -1,0,+1 samples relative to the peak
+///  as follows:  wpksamp = (0*sample[0] + 1*sample[1] + 2*sample[2]) / (sample[0] + sample[1] + sample[2])
+///  where sample[1] is the maximum ADC sample value.
+static float timeshift_ns_hbheho(float wpksamp);
+
+///Same as above, but for the HF PMTs.
+static float timeshift_ns_hf(float wpksamp);
 
 
 namespace HcalSimpleRecAlgoImpl {
@@ -24,14 +32,24 @@ namespace HcalSimpleRecAlgoImpl {
       }
     }
 
-    if(maxI==ifirst || maxI==(tool.size()-1)) printf("HcalSimpleRecAlgoImpl:  This is bad!!!\n");
+    ////Cannot calculate time value with max ADC sample at first or last position in window....
+    if(maxI==0 || maxI==(tool.size()-1)) {
+      throw cms::Exception("InvalidRecoParam") << "HcalSimpleRecAlgo::reconstruct :" 
+					       << " Invalid max amplitude position, " 
+					       << " max Amplitude: "<< maxI
+					       << " first: "<<ifirst
+					       << " last: "<<(tool.size()-1)
+					       << std::endl;
+  }
 
+
+    maxA=fabs(maxA);
     int capid=digi[maxI-1].capid();
-    float t0 = (tool[maxI-1]-calibs.pedestal(capid))*calibs.gain(capid);
+    float t0 = fabs((tool[maxI-1]-calibs.pedestal(capid))*calibs.gain(capid));
     capid=digi[maxI+1].capid();
-    float t2 = (tool[maxI+1]-calibs.pedestal(capid))*calibs.gain(capid);    
+    float t2 = fabs((tool[maxI+1]-calibs.pedestal(capid))*calibs.gain(capid));    
     float wpksamp = (maxA + 2.0*t2) / (t0 + maxA + t2);
-    float time = (maxI - digi.presamples())*25.0 + timeshift_hbheho(wpksamp);
+    float time = (maxI - digi.presamples())*25.0 + timeshift_ns_hbheho(wpksamp);
     
     return RecHit(digi.id(),ampl,time);    
   }
@@ -59,14 +77,218 @@ HFRecHit HcalSimpleRecAlgo::reconstruct(const HFDataFrame& digi, const HcalCoder
     }
   }
 
-  if(maxI==firstSample_ || maxI==(tool.size()-1)) printf("HcalSimpleRecAlgoImpl:  This is bad!!!\n");
-  
+  ////Cannot calculate time value with max ADC sample at first or last position in window....
+  if(maxI==0 || maxI==(tool.size()-1)) {
+    throw cms::Exception("InvalidRecoParam") << "HcalSimpleRecAlgo::reconstruct :" 
+					 << " Invalid max amplitude position, " 
+					 << " max Amplitude: "<< maxI
+					 << " first: "<<firstSample_
+					 << " last: "<<(tool.size()-1)
+					 << std::endl;
+  }
+
+  maxA=fabs(maxA);  
   int capid=digi[maxI-1].capid();
-  float t0 = (tool[maxI-1]-calibs.pedestal(capid))*calibs.gain(capid);
+  float t0 = fabs((tool[maxI-1]-calibs.pedestal(capid))*calibs.gain(capid));
   capid=digi[maxI+1].capid();
-  float t2 = (tool[maxI+1]-calibs.pedestal(capid))*calibs.gain(capid);    
+  float t2 = fabs((tool[maxI+1]-calibs.pedestal(capid))*calibs.gain(capid));    
   float wpksamp = (maxA + 2.0*t2) / (t0 + maxA + t2);
-  float time = (maxI - digi.presamples())*25.0 + timeshift_hf(wpksamp);
+  float time = (maxI - digi.presamples())*25.0 + timeshift_ns_hf(wpksamp);
   
   return HFRecHit(digi.id(),ampl,time); 
+}
+
+// timeshift implementation
+
+static const float wpksamp0_hbheho = 0.680539;
+static const float scale_hbheho    = 0.819447;
+static const int   num_bins_hbheho = 50;
+
+static const float actual_ns_hbheho[num_bins_hbheho] = {
+ 0.00250, // 0.000-0.020
+ 0.39500, // 0.020-0.040
+ 0.76750, // 0.040-0.060
+ 1.13000, // 0.060-0.080
+ 1.49000, // 0.080-0.100
+ 1.83000, // 0.100-0.120
+ 2.16500, // 0.120-0.140
+ 2.50000, // 0.140-0.160
+ 2.81500, // 0.160-0.180
+ 3.13000, // 0.180-0.200
+ 3.44250, // 0.200-0.220
+ 3.74500, // 0.220-0.240
+ 4.04250, // 0.240-0.260
+ 4.34000, // 0.260-0.280
+ 4.63500, // 0.280-0.300
+ 4.92750, // 0.300-0.320
+ 5.21750, // 0.320-0.340
+ 5.50500, // 0.340-0.360
+ 5.80000, // 0.360-0.380
+ 6.09000, // 0.380-0.400
+ 6.38500, // 0.400-0.420
+ 6.68750, // 0.420-0.440
+ 6.99750, // 0.440-0.460
+ 7.31000, // 0.460-0.480
+ 7.63250, // 0.480-0.500
+ 7.98500, // 0.500-0.520
+ 8.33500, // 0.520-0.540
+ 8.72000, // 0.540-0.560
+ 9.14500, // 0.560-0.580
+ 9.58500, // 0.580-0.600
+10.14250, // 0.600-0.620
+10.77250, // 0.620-0.640
+11.55750, // 0.640-0.660
+12.58750, // 0.660-0.680
+13.77250, // 0.680-0.700
+14.92500, // 0.700-0.720
+15.97750, // 0.720-0.740
+16.94250, // 0.740-0.760
+17.83250, // 0.760-0.780
+18.66250, // 0.780-0.800
+19.43000, // 0.800-0.820
+20.14000, // 0.820-0.840
+20.81000, // 0.840-0.860
+21.44500, // 0.860-0.880
+22.03000, // 0.880-0.900
+22.60000, // 0.900-0.920
+23.12250, // 0.920-0.940
+23.63250, // 0.940-0.960
+24.10500, // 0.960-0.980
+24.57000, // 0.980-1.000
+};
+
+float timeshift_ns_hbheho(float wpksamp) {
+  int index=(int)(0.5+num_bins_hbheho*(wpksamp-wpksamp0_hbheho)/scale_hbheho);
+  
+  if      (index <    0)             return actual_ns_hbheho[0];
+  else if (index >= num_bins_hbheho) return actual_ns_hbheho[num_bins_hbheho-1];
+  
+  return actual_ns_hbheho[index];
+}
+
+
+static const float wpksamp0_hf = 0.500635;
+static const float scale_hf    = 0.999301;
+static const int   num_bins_hf = 100;
+
+static const float actual_ns_hf[num_bins_hf] = {
+ 0.00000, // 0.000-0.010
+ 0.03750, // 0.010-0.020
+ 0.07250, // 0.020-0.030
+ 0.10750, // 0.030-0.040
+ 0.14500, // 0.040-0.050
+ 0.18000, // 0.050-0.060
+ 0.21500, // 0.060-0.070
+ 0.25000, // 0.070-0.080
+ 0.28500, // 0.080-0.090
+ 0.32000, // 0.090-0.100
+ 0.35500, // 0.100-0.110
+ 0.39000, // 0.110-0.120
+ 0.42500, // 0.120-0.130
+ 0.46000, // 0.130-0.140
+ 0.49500, // 0.140-0.150
+ 0.53000, // 0.150-0.160
+ 0.56500, // 0.160-0.170
+ 0.60000, // 0.170-0.180
+ 0.63500, // 0.180-0.190
+ 0.67000, // 0.190-0.200
+ 0.70750, // 0.200-0.210
+ 0.74250, // 0.210-0.220
+ 0.78000, // 0.220-0.230
+ 0.81500, // 0.230-0.240
+ 0.85250, // 0.240-0.250
+ 0.89000, // 0.250-0.260
+ 0.92750, // 0.260-0.270
+ 0.96500, // 0.270-0.280
+ 1.00250, // 0.280-0.290
+ 1.04250, // 0.290-0.300
+ 1.08250, // 0.300-0.310
+ 1.12250, // 0.310-0.320
+ 1.16250, // 0.320-0.330
+ 1.20500, // 0.330-0.340
+ 1.24500, // 0.340-0.350
+ 1.29000, // 0.350-0.360
+ 1.33250, // 0.360-0.370
+ 1.38000, // 0.370-0.380
+ 1.42500, // 0.380-0.390
+ 1.47500, // 0.390-0.400
+ 1.52500, // 0.400-0.410
+ 1.57750, // 0.410-0.420
+ 1.63250, // 0.420-0.430
+ 1.69000, // 0.430-0.440
+ 1.75250, // 0.440-0.450
+ 1.82000, // 0.450-0.460
+ 1.89250, // 0.460-0.470
+ 1.97500, // 0.470-0.480
+ 2.07250, // 0.480-0.490
+ 2.20000, // 0.490-0.500
+19.13000, // 0.500-0.510
+21.08750, // 0.510-0.520
+21.57750, // 0.520-0.530
+21.89000, // 0.530-0.540
+22.12250, // 0.540-0.550
+22.31000, // 0.550-0.560
+22.47000, // 0.560-0.570
+22.61000, // 0.570-0.580
+22.73250, // 0.580-0.590
+22.84500, // 0.590-0.600
+22.94750, // 0.600-0.610
+23.04250, // 0.610-0.620
+23.13250, // 0.620-0.630
+23.21500, // 0.630-0.640
+23.29250, // 0.640-0.650
+23.36750, // 0.650-0.660
+23.43750, // 0.660-0.670
+23.50500, // 0.670-0.680
+23.57000, // 0.680-0.690
+23.63250, // 0.690-0.700
+23.69250, // 0.700-0.710
+23.75000, // 0.710-0.720
+23.80500, // 0.720-0.730
+23.86000, // 0.730-0.740
+23.91250, // 0.740-0.750
+23.96500, // 0.750-0.760
+24.01500, // 0.760-0.770
+24.06500, // 0.770-0.780
+24.11250, // 0.780-0.790
+24.16000, // 0.790-0.800
+24.20500, // 0.800-0.810
+24.25000, // 0.810-0.820
+24.29500, // 0.820-0.830
+24.33750, // 0.830-0.840
+24.38000, // 0.840-0.850
+24.42250, // 0.850-0.860
+24.46500, // 0.860-0.870
+24.50500, // 0.870-0.880
+24.54500, // 0.880-0.890
+24.58500, // 0.890-0.900
+24.62500, // 0.900-0.910
+24.66500, // 0.910-0.920
+24.70250, // 0.920-0.930
+24.74000, // 0.930-0.940
+24.77750, // 0.940-0.950
+24.81500, // 0.950-0.960
+24.85250, // 0.960-0.970
+24.89000, // 0.970-0.980
+24.92750, // 0.980-0.990
+24.96250, // 0.990-1.000
+};
+
+float timeshift_ns_hf(float wpksamp) {
+  float flx = (num_bins_hf*(wpksamp - wpksamp0_hf)/scale_hf);
+  int index = (int)flx;
+  float yval;
+  
+  if      (index <    0)        return actual_ns_hf[0];
+  else if (index >= num_bins_hf-1) return actual_ns_hf[num_bins_hf-1];
+
+  // else interpolate:
+  float y1       = actual_ns_hf[index];
+  float y2       = actual_ns_hf[index+1];
+
+  // float delta_x  = 1/(float)num_bins_hf;
+  // yval = y1 + (y2-y1)*(flx-(float)index)/delta_x;
+
+  yval = y1 + (y2-y1)*(flx-(float)index)*(float)num_bins_hf;
+  return yval;
 }
