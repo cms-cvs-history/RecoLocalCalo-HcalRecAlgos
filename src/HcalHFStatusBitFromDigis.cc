@@ -56,6 +56,21 @@ HcalHFStatusBitFromDigis::HcalHFStatusBitFromDigis(int recoFirstSample,
   HFshortwindowMinTime_    = HFTimeInWindowParams.getParameter<std::vector<double> >("hfshortMinWindowTime");
   HFshortwindowMaxTime_    = HFTimeInWindowParams.getParameter<std::vector<double> >("hfshortMaxWindowTime");
   HFshortwindowEthresh_    = HFTimeInWindowParams.getParameter<double>("hfshortEthresh");
+
+  // Ugly hack to handle 2-TS vs 4-TS reco in flag creation
+  // This will be removed in CMSSW_4_X -- Jeff, 03 Feb 2011
+  if (recoFirstSample==3 && recoSamplesToAdd==4)
+    {
+      firstSample_  = 3;
+      samplesToAdd_ = 4;
+    }
+  // In 2-TS reconstruction, 3 TS are still used for the flag setting
+  else if (recoFirstSample==4 && recoSamplesToAdd==2)
+    {
+      firstSample_  = 3;
+      samplesToAdd_ = 3;
+    }
+  // If reco values don't match above cases, use the firstSample_, samplesToAdd_ values from the cfg.
 }
 
 HcalHFStatusBitFromDigis::~HcalHFStatusBitFromDigis(){}
@@ -98,9 +113,7 @@ void HcalHFStatusBitFromDigis::hfSetFlagFromDigi(HFRecHit& hf,
 	}
 
       // Sum all charge within flagging window, find charge in expected peak time slice
-      //if (i >=firstSample_ && i < firstSample_+samplesToAdd_)
-      // Hard code time slices to look only at TS3-5
-      if (i>=3 && i<=5)
+      if (i >=firstSample_ && i < firstSample_+samplesToAdd_)
 	{
 	  totalCharge+=value;
 	  RecomputedEnergy+=value*calib.respcorrgain(capid);
