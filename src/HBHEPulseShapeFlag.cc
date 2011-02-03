@@ -150,10 +150,10 @@ void HBHEPulseShapeFlagSetter::SetPulseShapeFlags(HBHERecHit &hbhe,
      double TS4Left = 1000;
      double TS4Right = 1000;
  
-     // Do we need to allow for negative values of LeftSlope?  Presumedly not...
-     if (TriangleResult.LeftSlope>0)
+     // Use 'if' statements to protect against slopes that are either 0 or very small
+     if (TriangleResult.LeftSlope>1e-5)
        TS4Left = mCharge[mTrianglePeakTS] / TriangleResult.LeftSlope;
-     if (TriangleResult.RightSlope<0)
+     if (TriangleResult.RightSlope<-1e-5)
        TS4Right = mCharge[mTrianglePeakTS] / -TriangleResult.RightSlope;
      
      if(TS4Left > 1000 || TS4Left < -1000)
