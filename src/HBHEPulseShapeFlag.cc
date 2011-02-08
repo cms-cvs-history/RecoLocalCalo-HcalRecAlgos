@@ -365,15 +365,18 @@ double HBHEPulseShapeFlagSetter::PerformNominalFit(const vector<double> &Charge)
       SumTF = 0;
       SumT2 = 0;
 
+      double ErrorTemp=0;
       for(int j = 0; j < DigiSize; j++)
 	{
 	  // get ideal pulse component for this time slice....
 	  F = CumulativeIdealPulse[i+j*25+25] - CumulativeIdealPulse[i+j*25];
 	  
+	  ErrorTemp=Charge[j];
+	  if (ErrorTemp<1) // protection against small charges
+	    ErrorTemp=1;
 	  // ...and increment various summations
-	  if (Charge[j]==0) continue;  // correct solution?  Or should we assign some minimanl value to Charge[j]?
-	  SumF2 += F * F / fabs(Charge[j]);
-	  SumTF += F * Charge[j] / fabs(Charge[j]);
+	  SumF2 += F * F / ErrorTemp;
+	  SumTF += F * Charge[j] / ErrorTemp;
 	  SumT2 += fabs(Charge[j]);
 	}
       
