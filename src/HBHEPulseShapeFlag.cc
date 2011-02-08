@@ -251,7 +251,7 @@ TriangleFitResult HBHEPulseShapeFlagSetter::PerformTriangleFit(const vector<doub
       // check if the slope is reasonable
       if(iTS != DigiSize)
 	{
-	  // What happens if iTS = mTrianglePeakTS, or iTS= 1+mTrianglePeakTS? -- Jeff
+	  // iTS starts at mTrianglePeak+2; denominator never zero
 	  if(BestSlope > -1 * Charge[mTrianglePeakTS] / (iTS - mTrianglePeakTS))
             BestSlope = -1 * Charge[mTrianglePeakTS] / (iTS - mTrianglePeakTS);
 	  if(BestSlope < -1 * Charge[mTrianglePeakTS] / (iTS - 1 - mTrianglePeakTS))
@@ -259,7 +259,7 @@ TriangleFitResult HBHEPulseShapeFlagSetter::PerformTriangleFit(const vector<doub
 	}
       else
 	{
-	  // What happens if iTS = mTrianglePeakTS, or iTS= 1+mTrianglePeakTS? -- Jeff
+	  // iTS starts at mTrianglePeak+2; denominator never zero
 	  if(BestSlope < -1 * Charge[mTrianglePeakTS] / (iTS - 1 - mTrianglePeakTS)) 
             BestSlope = -1 * Charge[mTrianglePeakTS] / (iTS - 1 - mTrianglePeakTS);
 	}
@@ -305,7 +305,7 @@ TriangleFitResult HBHEPulseShapeFlagSetter::PerformTriangleFit(const vector<doub
       // check slope
       if(iTS != 0)
 	{
-	  // Again, what happens if mTrianglePeakTS = iTS? -- Jeff
+	  // iTS starts at mTrianglePeak+2; denominator never zero
 	  if(BestSlope > Charge[mTrianglePeakTS] / (mTrianglePeakTS - iTS))
             BestSlope = Charge[mTrianglePeakTS] / (mTrianglePeakTS - iTS);
 	  if(BestSlope < Charge[mTrianglePeakTS] / (mTrianglePeakTS + 1 - iTS))
@@ -371,7 +371,7 @@ double HBHEPulseShapeFlagSetter::PerformNominalFit(const vector<double> &Charge)
 	  F = CumulativeIdealPulse[i+j*25+25] - CumulativeIdealPulse[i+j*25];
 	  
 	  // ...and increment various summations
-	  // What happens if Charge[j]==0?  -- Jeff
+	  if (Charge[j]==0) continue;  // correct solution?  Or should we assign some minimanl value to Charge[j]?
 	  SumF2 += F * F / fabs(Charge[j]);
 	  SumTF += F * Charge[j] / fabs(Charge[j]);
 	  SumT2 += fabs(Charge[j]);
@@ -516,9 +516,13 @@ double HBHEPulseShapeFlagSetter::DualNominalFitSingleTry(const vector<double> &C
       SumTF2  += F2[j] * Charge[j] / Error; 
    }
 
-   // What happens if SumF1F2*SumF1F2 = SumF1F1*SumF2*F2? -- Jeff
-   double Height = (SumF1F2 * SumTF2 - SumF2F2 * SumTF1) / (SumF1F2 * SumF1F2 - SumF1F1 * SumF2F2);
-   double Height2 = (SumF1F2 * SumTF1 - SumF1F1 * SumTF2) / (SumF1F2 * SumF1F2 - SumF1F1 * SumF2F2);
+   double Height  = 0;
+   double Height2 = 0;
+     if (fabs(SumF1F2*SumF1F2-SumF1F1*SumF2F2)>1e-5)
+       {
+	 Height  = (SumF1F2 * SumTF2 - SumF2F2 * SumTF1) / (SumF1F2 * SumF1F2 - SumF1F1 * SumF2F2);
+	 Height2 = (SumF1F2 * SumTF1 - SumF1F1 * SumTF2) / (SumF1F2 * SumF1F2 - SumF1F1 * SumF2F2);
+       }
 
    double Chi2 = 0;
    for(int j = 0; j < DigiSize; j++)
@@ -551,7 +555,8 @@ double HBHEPulseShapeFlagSetter::CalculateRMS8Max(const vector<double> &Charge)
 
    int DigiSize = Charge.size();
 
-   // Copy Charge vector again, since we are passing references around
+   if (DigiSize<=2)  return 1e-5;  // default statement when DigiSize is too small for useful RMS calculation
+  // Copy Charge vector again, since we are passing references around
    vector<double> TempCharge = Charge;
 
    // Sort TempCharge vector from smallest to largest charge
@@ -571,7 +576,6 @@ double HBHEPulseShapeFlagSetter::CalculateRMS8Max(const vector<double> &Charge)
    // aren't explicitly interpreting it as the RMS.  It might be nice
    // to either change the calculation or rename the variable in the future, though.
 
-   // What happens if DigiSize < 2?  -- Jeff
    double RMS = sqrt(Total2 - Total * Total / (DigiSize - 2));
 
    double RMS8Max = RMS / TempCharge[DigiSize-1];
@@ -620,7 +624,7 @@ double HBHEPulseShapeFlagSetter::PerformLinearFit(const vector<double> &Charge)
    double C1 = SumTiTS;   // Constant coefficient in equation 1
    double C2 = SumTi;   // Constant coefficient in equation 2
 
-   // What happens if CM1*CD2 - CM2*CD1 = 0, etc?   -- Jeff
+   // Denominators always non-zero by construction
    double Slope = (C1 * CD2 - C2 * CD1) / (CM1 * CD2 - CM2 * CD1);
    double Intercept = (C1 * CM2 - C2 * CM1) / (CD1 * CM2 - CD2 * CM1);
 
