@@ -305,7 +305,7 @@ TriangleFitResult HBHEPulseShapeFlagSetter::PerformTriangleFit(const vector<doub
       // check slope
       if(iTS != 0)
 	{
-	  // iTS starts at mTrianglePeak+2; denominator never zero
+	  // iTS must be >0 and < mTrianglePeakTS; slope never 0
 	  if(BestSlope > Charge[mTrianglePeakTS] / (mTrianglePeakTS - iTS))
             BestSlope = Charge[mTrianglePeakTS] / (mTrianglePeakTS - iTS);
 	  if(BestSlope < Charge[mTrianglePeakTS] / (mTrianglePeakTS + 1 - iTS))
