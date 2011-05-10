@@ -55,41 +55,21 @@ HcalHFStatusBitFromDigis::HcalHFStatusBitFromDigis(const edm::ParameterSet& HFDi
 
 HcalHFStatusBitFromDigis::~HcalHFStatusBitFromDigis(){}
 
-void HcalHFStatusBitFromDigis::resetFlagTimeSamples(int firstSample, int samplesToAdd)
+void HcalHFStatusBitFromDigis::resetFlagTimeSamples(int firstSample, int samplesToAdd, int expectedPeak)
 {
   // This resets the time samples used in the HF flag.  These samples are not necessarily the same 
   // as the flags used by the energy reconstruction
   firstSample_  = firstSample;
   samplesToAdd_ = samplesToAdd;
+  expectedPeak_ = expectedPeak;
 } // void HcalHFStatusBitFromDigis
 
 void HcalHFStatusBitFromDigis::hfSetFlagFromDigi(HFRecHit& hf, 
 						 const HFDataFrame& digi,
 						 const HcalCoder& coder,
-						 const HcalCalibrations& calib,
-						 int recoFirstSample,  // read for each hit from database
-						 int recoSamplesToAdd) 
+						 const HcalCalibrations& calib)
+
 {
-  // Parameters used in reconstruction (not necessarily the same as the flagging 'firstSample' and 'samplesToAdd')
-  recoFirstSample_ = recoFirstSample;
-  recoSamplesToAdd_ = recoSamplesToAdd;
-
-  //This is an UGLY UGLY hack that should be removed once we 
-  // are reading flag parameters from a database.  It forces
-  // the samples used in the flag to be set based on the 
-  // sample used in energy reconstruction, so that 2010
-  // data flags can be properly reproduced -- Jeff, 27 Feb 2011
-  if (recoFirstSample_==4 && recoSamplesToAdd_==2)
-    {
-      firstSample_=3;
-      samplesToAdd_=3;
-    }
-  else if (recoFirstSample_==3 && recoSamplesToAdd_==4)
-    {
-      firstSample_=3;
-      samplesToAdd_=4;
-    }
-
   // The following 3 values are computed by Igor's algorithm 
   //only in the window [firstSample_, firstSample_ + samplesToAdd_), 
   //which may not be the same as the default reco window.
