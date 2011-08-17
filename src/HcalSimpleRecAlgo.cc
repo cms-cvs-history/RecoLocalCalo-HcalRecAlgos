@@ -132,6 +132,14 @@ HcalCalibRecHit HcalSimpleRecAlgo::reconstruct(const HcalCalibDataFrame& digi, i
                                                                          setForData_ );
 }
 
+HcalUpgradeRecHit HcalSimpleRecAlgo::reconstruct(const HcalUpgradeDataFrame& digi, int first, int toadd, const HcalCoder& coder, const HcalCalibrations& calibs) const {
+  return HcalSimpleRecAlgoImpl::reco<HcalUpgradeDataFrame,HcalUpgradeRecHit>(digi,coder,calibs,
+                                                                         first,toadd,correctForTimeslew_,
+                                                                         pulseCorr_.get(),
+                                                                         HcalTimeSlew::Medium,
+                                                                         setForData_ );
+}
+
 HFRecHit HcalSimpleRecAlgo::reconstruct(const HFDataFrame& digi, int first, int toadd, const HcalCoder& coder, const HcalCalibrations& calibs) const {
   CaloSamples tool;
   coder.adc2fC(digi,tool);
