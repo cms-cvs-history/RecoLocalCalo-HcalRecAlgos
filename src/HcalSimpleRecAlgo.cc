@@ -1,4 +1,5 @@
 #include "RecoLocalCalo/HcalRecAlgos/interface/HcalSimpleRecAlgo.h"
+#include "RecoLocalCalo/HcalRecAlgos/src/HcalTDCReco.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "CalibCalorimetry/HcalAlgos/interface/HcalTimeSlew.h"
 #include <algorithm> // for "max"
@@ -133,11 +134,11 @@ HcalCalibRecHit HcalSimpleRecAlgo::reconstruct(const HcalCalibDataFrame& digi, i
 }
 
 HcalUpgradeRecHit HcalSimpleRecAlgo::reconstruct(const HcalUpgradeDataFrame& digi, int first, int toadd, const HcalCoder& coder, const HcalCalibrations& calibs) const {
-  return HcalSimpleRecAlgoImpl::reco<HcalUpgradeDataFrame,HcalUpgradeRecHit>(digi,coder,calibs,
-                                                                         first,toadd,correctForTimeslew_,
-                                                                         pulseCorr_.get(),
-                                                                         HcalTimeSlew::Medium,
-                                                                         setForData_ );
+  HcalUpgradeRecHit result = HcalSimpleRecAlgoImpl::reco<HcalUpgradeDataFrame,HcalUpgradeRecHit>(
+    digi,coder,calibs, first,toadd,correctForTimeslew_, pulseCorr_.get(), HcalTimeSlew::Medium,setForData_ );
+  HcalTDCReco tdcReco;
+  tdcReco.reconstruct(digi, result);
+  return result;
 }
 
 HFRecHit HcalSimpleRecAlgo::reconstruct(const HFDataFrame& digi, int first, int toadd, const HcalCoder& coder, const HcalCalibrations& calibs) const {
