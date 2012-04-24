@@ -7,7 +7,7 @@
 //--- temporary for printouts
 #include<iostream>
 
-static double MaximumFractionalError = 0.0005; // 0.05% error allowed from this source
+static double MaximumFractionalError = 0.005; // 0.05% error allowed from this source
 
 HcalSimpleRecAlgo::HcalSimpleRecAlgo(bool correctForTimeslew, bool correctForPulse, float phaseNS) : 
   correctForTimeslew_(correctForTimeslew),
