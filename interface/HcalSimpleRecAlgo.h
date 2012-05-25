@@ -26,8 +26,8 @@
    has the option of correcting the reconstructed time for energy-dependent
    time slew associated with the QIE.
     
-   $Date: 2011/03/08 09:03:57 $
-   $Revision: 1.13 $
+   $Date: 2011/08/17 22:31:13 $
+   $Revision: 1.13.8.1 $
    \author J. Mans - Minnesota
 */
 class HcalSimpleRecAlgo {
@@ -39,6 +39,7 @@ public:
   HcalSimpleRecAlgo();
 
   void initPulseCorr(int toadd); 
+  void setD1W(double w1);
 
   // ugly hack related to HB- e-dependent corrections
   void setForData();
@@ -55,6 +56,7 @@ private:
   float phaseNS_;
   std::auto_ptr<HcalPulseContainmentCorrection> pulseCorr_;
   bool setForData_;
+  double weight1;
 };
 
 #endif
