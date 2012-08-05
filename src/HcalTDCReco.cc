@@ -11,7 +11,7 @@ void HcalTDCReco::reconstruct(const HcalUpgradeDataFrame & digi,
   int n = digi.size();
   double risingTime = -999.;
   double fallingTime = -999.;
-  int signalBX = 5;
+  int signalBX = 4;
   // start at bunch crossing 3
   for(int i=3; i < n; ++i)
   {
