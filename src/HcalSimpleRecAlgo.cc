@@ -113,30 +113,64 @@ namespace HcalSimpleRecAlgoImpl {
       float wpksamp = (t0 + maxA + t2);
       if (wpksamp!=0) wpksamp=(maxA + 2.0*t2) / wpksamp; 
       time = (maxI - digi.presamples())*25.0 + timeshift_ns_hbheho(wpksamp);
-      if (corr!=0 && pulseCorrect ) {
-	// Apply phase-based amplitude correction:
 
-	/*
+      /*
+      // debugging 
+      if(n == 5 || !(pulseCorrect)) {
 	HcalDetId cell(digi.id());
 	int ieta  = cell.ieta();
 	int iphi  = cell.iphi();
-        int depth = cell.depth();
+	int depth = cell.depth();
+	
 	std::cout << "HcalSimpleRecAlgo::reco  cell:  ieta, iphi, depth =  " 
 		  << ieta << ", " << iphi
 		  << ", " << depth 
-                  << "    first, toadd = " << ifirst << ", " << n << std::endl
-	          << "    ampl,  corr,  ampl_after_corr = "
-                  << ampl << ",   " << corr->getCorrection(fc_ampl)
-                  << ",   "
-                  << ampl * corr->getCorrection(fc_ampl) << std::endl;
-	*/
+		  << "    first, toadd = " << ifirst << ", " << n
+		  << "  presamples = " << digi.presamples()
+		  << "  maxI = " << maxI << "   time = " << time
+		  << "  ampl = " << ampl << std::endl;
+
+	
+	std::cout << ">>> ACD -> fC -> (gain ="
+		  << calibs.respcorrgain(0) << ") GeV (ped.subtracted)" 
+		  << std::endl;
+	
+	for (int j = 0; j<tool.size(); j++) {
+	  int capid=digi[j].capid();
+	  std::cout << "[" << j << "] " << digi[j].adc() << " -> "
+		    << tool[j] <<  " -> " 
+		    << (tool[j]-calibs.pedestal(capid))*calibs.respcorrgain(capid)
+	    
+		    << std::endl;  
+	}
+      }  // end if(n == 5 || ...)
+      */      
+
+
+      // Apply pulse-shape amplitude correction     
+      if (corr!=0 && pulseCorrect ) {
+        
+	//        if (n == 5) std::cout << "pulseCorr = " 
+	//		      <<  corr->getCorrection(fc_ampl)
+	//		      << "   ampl_after_corr = " 
+	//		      << ampl * corr->getCorrection(fc_ampl) 
+	//		      << std::endl;
 
 	ampl *= corr->getCorrection(fc_ampl);
 
       }
-      if (slewCorrect) time-=HcalTimeSlew::delay(std::max(1.0,fc_ampl),slewFlavor);
 
+
+      // Correct timing for the time-slew effect
+      if (slewCorrect) {
+	time -=HcalTimeSlew::delay(std::max(1.0,fc_ampl),slewFlavor);
+	//	if(n == 5 || !(pulseCorrect)) 
+	//	  std::cout << "time slew  = " << time << std::endl;
+      }
+      
       time=time-calibs.timecorr(); // time calibration
+      //      if(n == 5 || !(pulseCorrect)) 
+      //	std::cout   << "time calib = " << time << std::endl;
     }
 
 
@@ -148,14 +182,14 @@ namespace HcalSimpleRecAlgoImpl {
       ampl *= eCorr(ieta,iphi,ampl);
     }
 
-    // Correction for a leak to pre-sample
+    // Correction for a leak to pre-sample (dummy right now)
     if(useLeak) {
       ampl *= leakCorr(ampl); 
     }
 
-
     return RecHit(digi.id(),ampl,time);    
   }
+
 }
 
 HBHERecHit HcalSimpleRecAlgo::reconstruct(const HBHEDataFrame& digi, int first, int toadd, const HcalCoder& coder, const HcalCalibrations& calibs) const {
@@ -165,6 +199,7 @@ HBHERecHit HcalSimpleRecAlgo::reconstruct(const HBHEDataFrame& digi, int first, 
 							       HcalTimeSlew::Medium,
                                                                setForData_, setLeakCorrection_);
 }
+
 
 HORecHit HcalSimpleRecAlgo::reconstruct(const HODataFrame& digi, int first, int toadd, const HcalCoder& coder, const HcalCalibrations& calibs) const {
   return HcalSimpleRecAlgoImpl::reco<HODataFrame,HORecHit>(digi,coder,calibs,
